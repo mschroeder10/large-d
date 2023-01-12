@@ -109,13 +109,19 @@ def post_tweets(api, filename):
     try:
         with open(filename, newline='') as csv_file:
             reader = csv.DictReader(csv_file)
+            count = 0
             for row in reader:
                 user_id = row["USER_ID"]
                 tweet_txt = row["TWEET_TEXT"]
                 tweet_ts = datetime.now()
                 api.post_tweet(user_id, tweet_ts, tweet_txt)
+                count += 1
+                if (count % 1000 == 0) :
+                    print("time elapsed --- %s seconds ---" % (time.time() - start_time))
+                
         print("--- %s seconds ---" % (time.time() - start_time))
         logging.info("time to post tweets: --- %s seconds ---" % (time.time() - start_time))
+        return True
     except KeyError as e:
         # This happens if CSV is invalid - missing some columns
         logging.exception(e)
