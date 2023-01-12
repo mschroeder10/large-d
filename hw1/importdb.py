@@ -89,7 +89,7 @@ def main():
     else:
         sys.exit(0)
     try:
-        cnx = create_connection(username, password, 'powerlift')
+        cnx = create_connection(username, password, 'tweets')
         if not cnx:
             sys.exit(0)
     except Exception as e:
