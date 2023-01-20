@@ -9,12 +9,10 @@ import random
 
 #original time: --- 1476.9839098453522 seconds --- average 677.5 tweets/sec
 #batch time: --- 273.97944474220276 seconds --- average 3663 tweets/sec
-#7 timelines per second using IN
-#5 timelines per second using WHERE user_id = ...
-#3 timelines per second using JOIN
+#2341 timelines/100 seconds, 23 timelines per/second
 
 # specs: intel i7 11700 2.50GHz, 32G RAM 
-logging.basicConfig(filename='pldb.log',format='%(message)s', filemode='w', level=logging.INFO)
+logging.basicConfig(filename='twitter.log',format='%(message)s', filemode='w', level=logging.INFO)
 BATCH_SIZE = 5
 
 class Tweet:
@@ -30,12 +28,10 @@ class Tweet:
         tweet_text: str
             The text of the tweet
     """
-    def __init__(self, tweet_id: int, user_id: int, tweet_ts: datetime, tweet_text: str):
+    def __init__(self, user_id: int, tweet_ts: datetime, tweet_text: str):
         """
         Constructs a new tweet
         Parameters:
-            tweet_id: int
-                A numeric id for the tweet
             user_id: int
                 A numeric user id indicating who posted the tweet
             tweet_ts: datetime
@@ -43,7 +39,6 @@ class Tweet:
             tweet_text: str
                 The text of the tweet
         """
-        self.tweet_id = tweet_id
         self.user_id = user_id
         self.tweet_ts = tweet_ts
         self.tweet_text = tweet_text
@@ -59,8 +54,13 @@ class TwitterAPI:
     """
     represent twitter api functionality 
     """
+    def open_db(self, username: str, password: str):
+        pass
+
+    def close_db(self):
+        pass
     
-    def post_tweet(self, user_id, tweet_ts, tweet_txt):
+    def post_tweet(self, tweet):
         pass
 
     def post_batch(self, tweets):
@@ -96,17 +96,37 @@ class TwitterAPIMySQL(TwitterAPI):
     class to simluate twitter API to mySQL database
     """
 
-    def __init__(self, username : str, password : str):
+    def __init__(self):
         """
-        constructs new twitterapi for mysql database
-        Parameters
-            username: database username
-            password: database password
+        constructs new twitter api for mysql database
         """
-        self.cnx = self.connect(username, password)
+        self.tweet_cache = []
+
+    def open_db(self, username: str, password: str):
+        """ Opens a database connection
+        Input
+        -----
+        username: str
+            username for the database
+        password: str
+            password for the database
+        """
+                    
+        try:
+            self.cnx = self.connect(username, password)
+    
+        except pymysql.err.OperationalError as e:
+            print('Error: %d: %s' % (e.args[0], e.args[1]))
+       
+    def close_db(self):
+        """ closes database
+        """
+        if self.tweet_cache:
+            self.post_batch(self.tweet_cache)
+        self.cnx.close()
 
     def insert(self, sql, payload):
-        """INSERT into database. 
+        """ INSERT into database. 
         Input
         ----
         sql : string
@@ -142,37 +162,24 @@ class TwitterAPIMySQL(TwitterAPI):
         ------
         list of rows 
         """
-        try:
-            self.cursor = self.cnx.cursor()
-            self.cursor.execute(sql, payload)
-            self.cnx.commit()
-            rows = self.cursor.fetchall()
-            self.cursor.close()
+        with self.cnx.cursor() as cursor:
+            cursor.execute(sql, payload)
+            rows = cursor.fetchall()
             return rows
-        except pymysql.err.Error as e:
-            self.cnx.rollback()
-            logging.exception(e)
-            return None
-
-    def post_tweet(self, user_id, tweet_ts, tweet_txt):
-        """ post a singular tweet to database
+    
+    def post_tweet(self, tweet : Tweet):
+        """
+        Posts the given tweet to the database
         Input
         ----
-        user_id : int
-        a user id
-        tweet_ts : datetime
-        date when tweet posted 
-        tweet_txt : str
-        content of tweet 
-
-        Returns
-        ------
-        True on success
+        tweet : Tweet
+           a Tweet to be posted
         """
-        sql = "INSERT INTO tweet ( user_id, tweet_ts, tweet_text) VALUES ( %s, %s, %s)"
-        payload = (user_id, tweet_ts, tweet_txt)
-        return self.insert(sql, payload)
-    
+        self.tweet_cache.append(tweet)
+        if len(self.tweet_cache) == BATCH_SIZE:
+            self.post_batch(self.tweet_cache)
+            self.tweet_cache = []
+
     def post_batch(self, tweets):
         """ post tweets in batches (multiple values in INSERT)
         Input
@@ -193,7 +200,7 @@ class TwitterAPIMySQL(TwitterAPI):
             else:
                 sql += ",(%s, %s, %s)"
             index += 1
-            values = values + (t['user_id'], t['tweet_ts'], t['tweet_txt'],)
+            values = values + (t.user_id, t.tweet_ts, t.tweet_text,)
         self.insert(sql, values)
 
     def get_timeline(self, user_id : int):
@@ -212,7 +219,8 @@ class TwitterAPIMySQL(TwitterAPI):
         #sql = "SELECT * FROM tweet WHERE user_id IN " + str(tuple(followees)) + "ORDER BY tweet_ts DESC LIMIT 10"
         with self.cnx.cursor() as cursor:
             cursor.callproc('get_timeline', (user_id,))
-            tweets = cursor.fetchall()
+            results = cursor.fetchall()
+            tweets = [Tweet(row['user_id'], row['tweet_ts'], row['tweet_text']) for row in results]
         #tweets = self.select(join_sql, (user_id,))
         return tweets
     
@@ -258,7 +266,8 @@ class TwitterAPIMySQL(TwitterAPI):
         get all tweets from a user
         """
         sql = "SELECT user_id, tweet_text, tweet_ts FROM tweet WHERE user_id=(%s)"
-        return self.select(sql, (user_id,))
+        results = self.select(sql, (user_id,))
+        return [Tweet(row['user_id'], row['tweet_ts'], row['tweet_text']) for row in results]
 
     def connect(self, username : str, password : str) -> pymysql.Connection:
         """ Connect to the database
@@ -322,7 +331,7 @@ class TwitterAPIMySQL(TwitterAPI):
             logging.exception(e)
             return False
 
-def post_tweets(api, filename, batch):
+def post_tweets(api, filename):
     """
     simlulate posting tweets in real-time by uploading pre-generated tweets to 'tweets' database
     set batch to true to INSERT multiple values in one statement 
@@ -335,17 +344,11 @@ def post_tweets(api, filename, batch):
             tweets = []
             for row in reader:
                 user_id = row["USER_ID"]
-                tweet_txt = row["TWEET_TEXT"]
+                tweet_text = row["TWEET_TEXT"]
                 tweet_ts = datetime.now()
-                if batch:
-                    tweet = {'user_id':user_id, 'tweet_ts':tweet_ts, 'tweet_txt':tweet_txt}
-                    if len(tweets) < BATCH_SIZE:
-                        tweets.append(tweet)
-                    else:
-                        api.post_batch(tweets)
-                        tweets = []
-                else:
-                    api.post_tweet(user_id, tweet_ts, tweet_txt)
+                tweet = Tweet(user_id, tweet_ts, tweet_text)
+                tweets.append(tweet)
+                api.post_tweet(tweet)
                 count += 1
                 if (count % 1000 == 0) :
                     print("time elapsed --- %s seconds ---" % (time.time() - start_time))
@@ -387,11 +390,12 @@ def main():
         password = args.credentials[1]
     else:
         sys.exit(0)
-    api = TwitterAPIMySQL(username, password)
+    api = TwitterAPIMySQL()
+    api.open_db(username, password)
     if args.followers:
         api.import_followers("hw1_data/follows.csv")
 
-    post_tweets(api, "hw1_data/tweet.csv", True)
+    post_tweets(api, "hw1_data/tweet.csv")
     #post_tweets(api, "tweets_sample.csv", True)
     print(get_timelines(100, api))
 
