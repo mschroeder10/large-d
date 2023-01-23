@@ -8,7 +8,6 @@ import sys
 import time
 from twitter import Tweet
 
-#original time: --- 1476.9839098453522 seconds --- average 677.5 tweets/sec
 #batch time: --- 273.97944474220276 seconds --- average 3663 tweets/sec
 #2341 timelines/100 seconds, 23 timelines per/second
 
@@ -35,8 +34,8 @@ def post_tweets(api, filename):
                 tweets.append(tweet)
                 api.post_tweet(tweet)
                 count += 1
-                if (count % 1000 == 0) :
-                    print("time elapsed --- %s seconds ---" % (time.time() - start_time))
+                #if (count % 1000 == 0) :
+                    #print("time elapsed --- %s seconds ---" % (time.time() - start_time))
                 
         print("--- %s seconds ---" % (time.time() - start_time))
         logging.info("time to post tweets: --- %s seconds ---" % (time.time() - start_time))
