@@ -14,6 +14,8 @@ from twitter import Tweet
 # specs: intel i7 11700 2.50GHz, 32G RAM 
 logging.basicConfig(filename='twitter.log',format='%(message)s', filemode='w', level=logging.INFO)
 BATCH_SIZE = 5
+FOLLOWS_PATH = "C:/Users/mdsco/OneDrive/Documents/northeastern/2023/ds/data/hw1_data/follows.csv"
+TWEETS_PATH = "C:/Users/mdsco/OneDrive/Documents/northeastern/2023/ds/data/hw1_data/tweet.csv"
 
 def post_tweets(api, filename):
     """
@@ -77,9 +79,9 @@ def main():
     api = TwitterAPIMySQL()
     api.open_db(username, password)
     if args.followers:
-        api.import_followers("hw1_data/follows.csv")
+        api.import_followers(FOLLOWS_PATH)
 
-    post_tweets(api, "hw1_data/tweet.csv")
+    post_tweets(api, TWEETS_PATH)
     #post_tweets(api, "tweets_sample.csv", True)
     print(get_timelines(100, api))
 
