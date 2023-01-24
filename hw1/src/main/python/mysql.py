@@ -2,8 +2,6 @@ import csv
 from datetime import datetime
 import logging
 import pymysql
-import random
-import time
 from twitter import Tweet, TwitterAPI
 
 BATCH_SIZE = 5
