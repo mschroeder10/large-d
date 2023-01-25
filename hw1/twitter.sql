@@ -24,15 +24,8 @@ DROP PROCEDURE IF EXISTS get_timeline;
 DELIMITER //
 CREATE PROCEDURE get_timeline(user_id INT)
 BEGIN
-SELECT t.tweet_id, t.user_id, t.tweet_ts, t.tweet_text FROM tweet AS t
-    WHERE t.user_id IN
-        (SELECT f.follows_id FROM follow AS f WHERE f.user_id = user_id)
-    ORDER BY t.tweet_ts DESC LIMIT 10;
+   SELECT t.user_id, t.tweet_ts, t.tweet_text FROM follow AS f
+      JOIN tweet AS t ON f.follows_id = t.user_id
+      WHERE f.user_id = user_id  ORDER BY t.tweet_ts DESC LIMIT 10;
 END//
 DELIMITER ;
-
-SELECT * FROM follow;
-SELECT * FROM tweet WHERE user_id = 5312 OR user_id = 8203 OR user_id = 9268 OR user_id = 5312 OR user_id = 8203 OR user_id = 9268 ORDER BY tweet_ts DESC;
-SELECT t.user_id, t.tweet_ts, t.tweet_text FROM tweet AS t
-    JOIN follow AS f ON f.follows_id = t.user_id
-    WHERE f.user_id = 316 ORDER BY t.tweet_ts DESC LIMIT 10;

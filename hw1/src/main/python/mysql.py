@@ -39,48 +39,6 @@ class TwitterAPIMySQL(TwitterAPI):
         if self.tweet_cache:
             self.post_batch(self.tweet_cache)
         self.cnx.close()
-
-    def insert(self, sql, payload):
-        """ INSERT into database. 
-        Input
-        ----
-        sql : string
-        sql statement to be executed 
-        payload : tuple
-        values to be inserted into sql statement
-
-        Returns
-        ------
-        True on success
-        """
-        try:
-            self.cursor = self.cnx.cursor()
-            self.cursor.execute(sql, payload)
-            self.cnx.commit()
-            self.cursor.close()
-            return True
-        except pymysql.err.Error as e:
-            self.cnx.rollback()
-            logging.exception(e)
-            return False
-    
-    def select(self, sql, payload):
-        """ return result of SELECTing data from database
-        Input
-        ----
-        sql : string
-        sql statement to be executed 
-        payload : tuple
-        values to be inserted into sql statement
-
-        Returns
-        ------
-        list of rows 
-        """
-        with self.cnx.cursor() as cursor:
-            cursor.execute(sql, payload)
-            rows = cursor.fetchall()
-            return rows
     
     def post_tweet(self, tweet : Tweet):
         """
@@ -151,7 +109,7 @@ class TwitterAPIMySQL(TwitterAPI):
         all users that follow the given user 
         """
         sql = "SELECT user_id FROM follow WHERE follows_id=(%s)"
-        return self.select(sql, (user_id,))
+        return [int(entry['user_id']) for entry in self.select(sql, (user_id,))]
     
     def get_followees(self, user_id : int):
         """ Returns all users that the given user follows
@@ -165,7 +123,7 @@ class TwitterAPIMySQL(TwitterAPI):
         all users that the given user follows
         """
         sql = "SELECT follows_id FROM follow WHERE user_id=(%s)"
-        return self.select(sql, (user_id,))
+        return [int(entry['follows_id']) for entry in self.select(sql, (user_id,))]
     
     def get_users(self):
         """ Returns a list of all user ids in the database
@@ -245,3 +203,44 @@ class TwitterAPIMySQL(TwitterAPI):
             self.cnx.rollback()
             logging.exception(e)
             return False
+    def insert(self, sql, payload):
+        """ INSERT into database. 
+        Input
+        ----
+        sql : string
+        sql statement to be executed 
+        payload : tuple
+        values to be inserted into sql statement
+
+        Returns
+        ------
+        True on success
+        """
+        try:
+            self.cursor = self.cnx.cursor()
+            self.cursor.execute(sql, payload)
+            self.cnx.commit()
+            self.cursor.close()
+            return True
+        except pymysql.err.Error as e:
+            self.cnx.rollback()
+            logging.exception(e)
+            return False
+    
+    def select(self, sql, payload):
+        """ return result of SELECTing data from database
+        Input
+        ----
+        sql : string
+        sql statement to be executed 
+        payload : tuple
+        values to be inserted into sql statement
+
+        Returns
+        ------
+        list of rows 
+        """
+        with self.cnx.cursor() as cursor:
+            cursor.execute(sql, payload)
+            rows = cursor.fetchall()
+            return rows
