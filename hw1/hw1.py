@@ -45,7 +45,7 @@ class Tweet:
     
     def __repr__(self):
         """ Returns a string represention of the object. """
-        return f'{self.tweet_ts} {self.tweet_id} {self.user_id} {self.tweet_text}'
+        return f'{self.tweet_ts} {self.user_id} {self.tweet_text}'
     
     def __str__(self):
         return self.__repr__()
