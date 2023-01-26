@@ -29,9 +29,11 @@ class TwitterAPIMySQL(TwitterAPI):
                     
         try:
             self.cnx = self.connect(username, password)
+            return True
     
         except pymysql.err.OperationalError as e:
             print('Error: %d: %s' % (e.args[0], e.args[1]))
+            return False
        
     def close_db(self):
         """ closes database
@@ -166,6 +168,7 @@ class TwitterAPIMySQL(TwitterAPI):
             return cnx
 
         except pymysql.err.Error as e:
+            print(f'Login failed: {e}')
             logging.info(f'Login failed: {e}')
             return None
     
@@ -203,6 +206,7 @@ class TwitterAPIMySQL(TwitterAPI):
             self.cnx.rollback()
             logging.exception(e)
             return False
+            
     def insert(self, sql, payload):
         """ INSERT into database. 
         Input

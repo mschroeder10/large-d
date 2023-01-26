@@ -68,7 +68,7 @@ def get_timelines(duration, api):
 
 def main():
     parser = argparse.ArgumentParser(description='Tweets Database')
-    parser.add_argument('--credentials', metavar=('user', 'password'), dest="credentials", nargs=2)
+    parser.add_argument('--credentials', metavar=('user', 'password'), dest="credentials", nargs=2, required=True)
     parser.add_argument('--followers', action='store_true')
     args = parser.parse_args()
     if args.credentials and len(args.credentials) == 2:
@@ -77,11 +77,14 @@ def main():
     else:
         sys.exit(0)
     api = TwitterAPIMySQL()
-    api.open_db(username, password)
+    connected = api.open_db(username, password)
+    if not connected:
+        print ("Error, could not connect to database")
+        sys.exit(0)
     if args.followers:
         api.import_followers(FOLLOWS_PATH)
 
-    post_tweets(api, TWEETS_PATH)
+    #post_tweets(api, TWEETS_PATH)
     #post_tweets(api, "tweets_sample.csv", True)
     print(get_timelines(100, api))
 
