@@ -47,7 +47,6 @@ class TwitterAPIRedis(TwitterAPI):
         ----
         user_id : int
         a user id 
-
         Returns
         ------
         all users that follow the given user 
@@ -63,7 +62,6 @@ class TwitterAPIRedis(TwitterAPI):
         ----
         user_id : int
         a user id 
-
         Returns
         ------
         all users that the given user follows
@@ -85,7 +83,6 @@ class TwitterAPIRedis(TwitterAPI):
         ----
         filename : str
         csv file to read 
-
         Returns
         ------
         True on success
