@@ -248,3 +248,6 @@ class TwitterAPIMySQL(TwitterAPI):
             cursor.execute(sql, payload)
             rows = cursor.fetchall()
             return rows
+
+    def flush_db(self):
+        pass

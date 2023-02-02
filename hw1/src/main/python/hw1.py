@@ -3,6 +3,7 @@ import csv
 from datetime import datetime
 import logging
 from mysql import TwitterAPIMySQL
+from myredis import TwitterAPIRedis
 import random
 import sys
 import time
@@ -44,9 +45,11 @@ def post_tweets(api, filename):
         return True
     except KeyError as e:
         # This happens if CSV is invalid - missing some columns
+        print (f"an exception occured: {e}")
         logging.exception(e)
         return False
     except Exception as e:
+        print (f"an exception occured: {e}")
         logging.exception(e)
         return False
 
@@ -70,23 +73,31 @@ def main():
     parser = argparse.ArgumentParser(description='Tweets Database')
     parser.add_argument('--credentials', metavar=('user', 'password'), dest="credentials", nargs=2, required=True)
     parser.add_argument('--followers', action='store_true')
+    parser.add_argument('--flush', action='store_true')
     args = parser.parse_args()
     if args.credentials and len(args.credentials) == 2:
         username = args.credentials[0]
         password = args.credentials[1]
     else:
         sys.exit(0)
-    api = TwitterAPIMySQL()
+    #api = TwitterAPIMySQL()
+    api = TwitterAPIRedis()
     connected = api.open_db(username, password)
     if not connected:
         print ("Error, could not connect to database")
         sys.exit(0)
+    if args.flush:
+        api.flush_db()
+        #idk how long it takes for this to work, wait a bit before doing anything else (reloading data)
+        time.sleep(5)
     if args.followers:
         api.import_followers(FOLLOWS_PATH)
 
     #post_tweets(api, TWEETS_PATH)
     #post_tweets(api, "tweets_sample.csv", True)
     print(get_timelines(100, api))
+    #users = api.get_tweets(1)
+    #print(users[:10])
 
 
 if __name__ == "__main__":

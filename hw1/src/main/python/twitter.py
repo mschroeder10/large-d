@@ -71,3 +71,6 @@ class TwitterAPI:
 
     def connect(self, user : str, passwrd : str):
         pass
+    
+    def flush_db(self):
+        pass
