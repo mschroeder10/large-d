@@ -3,7 +3,8 @@ import csv
 from datetime import datetime
 import logging
 from mysql import TwitterAPIMySQL
-from myredis import TwitterAPIRedis
+from redismain import TwitterAPIRedis
+from redisopt import TwitterAPIRedisOpt
 import random
 import sys
 import time
@@ -48,6 +49,7 @@ def post_tweets(api, filename):
                     #print("time elapsed --- %s seconds ---" % (time.time() - start_time))
                 
         print("--- %s seconds ---" % (time.time() - start_time))
+        print("--- %s per second ---" % (time.time() - start_time)/1000000)
         logging.info("time to post tweets: --- %s seconds ---" % (time.time() - start_time))
         return True
     except KeyError as e:
@@ -70,10 +72,10 @@ def get_timelines(duration, api):
     count = 0
     while time.time() < end_time:
         user = random.choice(user_ids)
-        #api.get_timeline(user)
-        api.get_timeline_ver1(user)
+        api.get_timeline(user)
         count += 1
     print ("got ", count , " timelines.")
+    print (count/duration " timelines/sec")
 
 
 
@@ -90,7 +92,8 @@ def main():
     else:
         sys.exit(0)
     #api = TwitterAPIMySQL()
-    api = TwitterAPIRedis()
+    # api = TwitterAPIRedis()
+    api = TwitterAPIRedisOpt()
     connected = api.open_db(username, password)
     if not connected:
         print ("Error, could not connect to database")
@@ -108,7 +111,7 @@ def main():
         post_tweets(api, TWEETS_PATH)
         #post_tweets_v1(api, TWEETS_PATH)
 
-    print(get_timelines(100, api))
+    print(get_timelines(10, api))
     #print(api.get_timeline_ver1(10))
     #users = api.get_timeline(1)
     #print(users[:10])

@@ -7,7 +7,7 @@ from twitter import Tweet, TwitterAPI
 BATCH_SIZE = 5
 class TwitterAPIRedis(TwitterAPI):
     """
-    class to simluate twitter API to redis database
+     Redis implementation of twitter database that maps a tweet to a users timeline on post
     """
     def __init__(self):
         """
@@ -44,7 +44,7 @@ class TwitterAPIRedis(TwitterAPI):
         """
         self.tweet_cache.append(tweet)
         if len(self.tweet_cache) == BATCH_SIZE:
-            self.post_batch_ver1(self.tweet_cache)
+            self.post_batch(self.tweet_cache)
             self.tweet_cache = []
 
     def post_batch(self, tweets):
@@ -71,37 +71,6 @@ class TwitterAPIRedis(TwitterAPI):
             return True
         return False
 
-    def post_batch_ver1(self, tweets):
-        """ post tweets in batches (multiple values in INSERT)
-        Input
-        ----
-        tweets : list
-        list of tweets
-
-        Returns
-        ------
-        True on success
-        """
-        with self.cnx.pipeline() as pipe:
-            for tweet in tweets:
-                tweet_id = self.cnx.incr('next_tweet_id', 1)
-                tweet_key = 'post:' + str(tweet_id)
-                pipe.set(tweet_key, self._tweet_to_string(tweet))
-#                pipe.zadd('posts:' + str(tweet.user_id), {str(tweet_id): tweet_id})
-                pipe.zadd('posts:' + str(tweet.user_id), {str(tweet_id): tweet.tweet_ts.timestamp()})
-            pipe.execute()
-            return True
-        return False
-
-    def get_timeline_ver1(self, user_id: int):
-        keys = ['posts:' + str(followee) for followee in self.get_followees(user_id)]
-        if not keys:
-            return [] 
-        self.cnx.zunionstore('timeline', keys)
-        tweet_ids = self.cnx.zrange('timeline', 0, 9, desc=True)
-        tweets = [self._string_to_tweet(self.cnx.get(f'post:{int(tweet_id.decode("utf-8"))}').decode("utf-8")) for tweet_id in tweet_ids]
-        return tweets
-
     def get_timeline(self, user_id : int):
         """ get a user's timeline
         Input
@@ -115,7 +84,7 @@ class TwitterAPIRedis(TwitterAPI):
         
         """
         key = f'posts:{user_id}'
-        tweets = [self._string_to_tweet(val.decode("utf-8")) for val in self.cnx.lrange(key, 0 , 10)]
+        tweets = [self._string_to_tweet(val) for val in self.cnx.lrange(key, 0 , 10)]
         #tweet_ids = [int(tweet_id.decode("utf-8")) for tweet_id in self.cnx.lrange(key, 0 , 10)]
         #tweets = [self._string_to_tweet(self.cnx.get(f"post:{tweet_id}").decode("utf-8")) for tweet_id in tweet_ids]
         return tweets
@@ -131,7 +100,7 @@ class TwitterAPIRedis(TwitterAPI):
         all users that follow the given user 
         """
         key = f'follower:{user_id}'
-        return [int(i.decode("utf-8")) for i in self.cnx.smembers(key)]
+        return [int(i) for i in self.cnx.smembers(key)]
 
     def get_followees(self, user_id : int):
         """ Returns all users that the given user follows
@@ -144,7 +113,7 @@ class TwitterAPIRedis(TwitterAPI):
         all users that the given user follows
         """
         key = f'followee:{user_id}'
-        return [int(i.decode("utf-8")) for i in self.cnx.smembers(key)]
+        return [int(i) for i in self.cnx.smembers(key)]
 
     def get_users(self):
         """ Returns a list of all user ids in the database
@@ -165,7 +134,7 @@ class TwitterAPIRedis(TwitterAPI):
         """
         tweets = []
         for k in self.cnx.scan_iter("posts:*"):
-            tweets = tweets + [self._string_to_tweet(val.decode("utf-8")) for val in self.cnx.lrange(k, 0, -1) if int(k.decode("utf-8").split(":")[1]) == user_id]
+            tweets = tweets + [self._string_to_tweet(val) for val in self.cnx.lrange(k, 0, -1) if int(k.split(":")[1]) == user_id]
         #for k in self.cnx.scan_iter("post:*"):
             #tweet = self.cnx.get(k)
             #tweet_usr = self._string_to_tweet(tweet.decode("utf-8")).user_id
@@ -217,9 +186,8 @@ class TwitterAPIRedis(TwitterAPI):
         cnx : connection object on success, otherwise None
         """
         
-        #password=password to set password. 
         try:
-            cnx = redis.Redis(host='localhost', db=0)
+            cnx = redis.Redis(host='localhost', db=0, decode_responses=True)
             return cnx
 
         except Exception as e:
