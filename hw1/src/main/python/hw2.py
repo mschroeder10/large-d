@@ -88,17 +88,13 @@ def main():
     if args.credentials and len(args.credentials) == 2:
         username = args.credentials[0]
         password = args.credentials[1]
-    else:
-        sys.exit(0)
-    api = TwitterAPIMySQL()
-    connected = api.open_db(username, password)
+    #api = TwitterAPIRedis()
+    api = TwitterAPIRedisOpt()
+    connected = api.open_db(username, password) #no credentials for redis
     if not connected:
         print ("Error, could not connect to database")
         sys.exit(0)
     if args.post:
-        print ("flushing database")
-        api.flush_db()
-        time.sleep(5)
         print ("importing followers")
         api.import_followers(FOLLOWS_PATH)
         print ("posting tweets")

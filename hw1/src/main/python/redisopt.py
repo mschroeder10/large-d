@@ -34,6 +34,17 @@ class TwitterAPIRedisOpt(TwitterAPIRedis):
         return False
 
     def get_timeline(self, user_id: int):
+        """Get the timeline for a given user.
+        Creates a temporary ordered set that is the union of the sets of tweet ids of all the users
+        that the given user follows. Then retrieves the first 10 tweet ids from that temporary ordered
+        set and uses those to look up the corresponding tweets.
+        Input:
+        -----
+        user_id : int
+           The user_id whose timeline is to be retrieved
+        Returns
+        ------
+        A list of the first 10 tweets for the given user's timeline"""
         keys = ['posts:' + str(followee) for followee in self.get_followees(user_id)]
         if not keys:
             return [] 
@@ -51,12 +62,6 @@ class TwitterAPIRedisOpt(TwitterAPIRedis):
         -----
         list of tweets from a user
         """
-        tweets = []
-        for k in self.cnx.scan_iter("posts:*"):
-            tweets = tweets + [self._string_to_tweet(val) for val in self.cnx.zrange(k, 0, -1) if int(k.split(":")[1]) == user_id]
-        #for k in self.cnx.scan_iter("post:*"):
-            #tweet = self.cnx.get(k)
-            #tweet_usr = self._string_to_tweet(tweet.decode("utf-8")).user_id
-            #if (tweet_usr == user_id):
-            #    tweets = tweets + [tweet]
+        tweet_ids = self.cnx.zrange(f'posts:{user_id}', 0, -1, desc=True)
+        tweets = [self._string_to_tweet(self.cnx.get(f'post:{int(tweet_id)}')) for tweet_id in tweet_ids]
         return tweets

@@ -49,6 +49,11 @@ class TwitterAPIRedis(TwitterAPI):
 
     def post_batch(self, tweets):
         """ post tweets in batches (multiple values in INSERT)
+        The following keys are written:
+        posts:<user id posting the tweet> list of all tweets posted by a given user
+              This is to support the get_tweets() method, which returns all tweets for a user
+        timeline:<follower_id> The tweet is added to the timeline (list of tweets) for each user
+              that is a follower of the user posting the tweet.
         Input
         ----
         tweets : list
@@ -60,13 +65,11 @@ class TwitterAPIRedis(TwitterAPI):
         """
         with self.cnx.pipeline() as pipe:
             for tweet in tweets:
-                #tweet_id = self.cnx.incr('next_tweet_id', 1)
-                #pipe.set('post:' + str(tweet_id), self._tweet_to_string(tweet))
                 post = self._tweet_to_string(tweet)
+                pipe.lpush(f'posts:{tweet.user_id}', post) # keep track of posts by this user
                 followers = self.get_followers(tweet.user_id)
                 for follower in followers:
-                    pipe.lpush(f'posts:{follower}', post)
-                    #pipe.lpush(f'posts:{follower}', tweet_id)
+                    pipe.lpush(f'timeline:{follower}', post) # write post to timeline of each follower
             pipe.execute()
             return True
         return False
@@ -83,10 +86,8 @@ class TwitterAPIRedis(TwitterAPI):
         get a user's timeline (most recent 10 tweets from followers)
         
         """
-        key = f'posts:{user_id}'
-        tweets = [self._string_to_tweet(val) for val in self.cnx.lrange(key, 0 , 10)]
-        #tweet_ids = [int(tweet_id.decode("utf-8")) for tweet_id in self.cnx.lrange(key, 0 , 10)]
-        #tweets = [self._string_to_tweet(self.cnx.get(f"post:{tweet_id}").decode("utf-8")) for tweet_id in tweet_ids]
+        key = f'timeline:{user_id}'
+        tweets = [self._string_to_tweet(val) for val in self.cnx.lrange(key, 0 , 9)]
         return tweets
 
     def get_followers(self, user_id : int):
@@ -132,14 +133,8 @@ class TwitterAPIRedis(TwitterAPI):
         -----
         list of tweets from a user
         """
-        tweets = []
-        for k in self.cnx.scan_iter("posts:*"):
-            tweets = tweets + [self._string_to_tweet(val) for val in self.cnx.lrange(k, 0, -1) if int(k.split(":")[1]) == user_id]
-        #for k in self.cnx.scan_iter("post:*"):
-            #tweet = self.cnx.get(k)
-            #tweet_usr = self._string_to_tweet(tweet.decode("utf-8")).user_id
-            #if (tweet_usr == user_id):
-            #    tweets = tweets + [tweet]
+        key = f'posts:{user_id}'
+        tweets = [self._string_to_tweet(val) for val in self.cnx.lrange(key, 0, -1)]
         return tweets
 
     def import_followers(self, filename : str):
